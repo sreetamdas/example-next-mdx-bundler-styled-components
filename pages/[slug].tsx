@@ -1,4 +1,4 @@
-import fs from "fs";
+import { promises as fs } from "fs";
 import path from "path";
 import { useMemo } from "react";
 import { getMDXComponent } from "mdx-bundler/client";
@@ -45,7 +45,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
 const getBlogPostsSlugs = async () => {
 	const DIR = path.join(process.cwd(), "content");
-	const files = fs.readdirSync(DIR).filter((file) => file.endsWith(".mdx"));
+	const files = (await fs.readdir(DIR)).filter((file) => file.endsWith(".mdx"));
 
 	const postsData = files.map((file) => {
 		const slug = file.replace(/\.mdx?$/, "");
@@ -59,10 +59,17 @@ const getBlogPostsSlugs = async () => {
 };
 
 const getBlogPostData = async (file: string) => {
-	const DIR = path.join(process.cwd(), "content");
-	const name = path.join(DIR, `${file}.mdx`);
-	const mdxSource = fs.readFileSync(name, "utf8");
-	const result = await bundleMDX(mdxSource);
+	const DIR = path.resolve(process.cwd(), "content");
+	const name = path.resolve(DIR, `${file}.mdx`);
+	const mdxSource = await fs.readFile(name, "utf8");
+	const result = await bundleMDX(mdxSource, {
+		cwd: path.dirname(name),
+		esbuildOptions(options) {
+			options.platform = "node";
+
+			return options;
+		},
+	});
 
 	console.log({ result });
 	return result;
