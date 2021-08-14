@@ -1,24 +1,33 @@
 import fs from "fs";
 import path from "path";
-import { useEffect } from "react";
+import { useMemo } from "react";
+import { getMDXComponent } from "mdx-bundler/client";
+import { bundleMDX } from "mdx-bundler";
+import { GetStaticProps, InferGetStaticPropsType } from "next";
 
-const Index = ({ post }) => {
-	useEffect(() => {
-		console.log(post);
-	}, [post]);
+const Index = ({
+	code,
+	frontmatter,
+}: InferGetStaticPropsType<typeof getStaticProps>) => {
+	const Component = useMemo(() => getMDXComponent(code), [code]);
 
 	return (
-		<div>
-			<h1>Hello world!</h1>
-		</div>
+		<>
+			<header>
+				<h1>{frontmatter.title}</h1>
+				<p>{frontmatter.description}</p>
+			</header>
+			<main>
+				<Component />
+			</main>
+		</>
 	);
 };
 
 export default Index;
 
 export const getStaticPaths = async () => {
-	const postsData = await getBlogPostsData();
-
+	const postsData = await getBlogPostsSlugs();
 	const paths = postsData.map((post) => ({
 		params: { slug: post.slug },
 	}));
@@ -26,14 +35,15 @@ export const getStaticPaths = async () => {
 	return { paths, fallback: false };
 };
 
-export const getStaticProps = async ({ params }) => {
-	const postsData = await getBlogPostsData();
-	const post = postsData.find((postData) => postData.slug === params?.slug)!;
+export const getStaticProps: GetStaticProps = async ({ params }) => {
+	if (!params?.slug || Array.isArray(params?.slug)) return { props: {} };
 
-	return { props: { post } };
+	const postData = await getBlogPostData(params?.slug);
+
+	return { props: { ...postData } };
 };
 
-const getBlogPostsData = async () => {
+const getBlogPostsSlugs = async () => {
 	const DIR = path.join(process.cwd(), "content");
 	const files = fs.readdirSync(DIR).filter((file) => file.endsWith(".mdx"));
 
@@ -46,4 +56,14 @@ const getBlogPostsData = async () => {
 	});
 
 	return postsData;
+};
+
+const getBlogPostData = async (file: string) => {
+	const DIR = path.join(process.cwd(), "content");
+	const name = path.join(DIR, `${file}.mdx`);
+	const mdxSource = fs.readFileSync(name, "utf8");
+	const result = await bundleMDX(mdxSource);
+
+	console.log({ result });
+	return result;
 };
