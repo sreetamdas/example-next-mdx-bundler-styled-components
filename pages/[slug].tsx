@@ -71,6 +71,5 @@ const getBlogPostData = async (file: string) => {
 		},
 	});
 
-	console.log({ result });
 	return result;
 };
